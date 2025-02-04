@@ -287,14 +287,19 @@ class NiceHeegaardDiagram():
         self.domains_stored[0]=(0,zero_vector(len(self.regions_un)))
         for qS in self.QSpinC_structures:
             same_QSpinC=[foo for foo in self.generators if self.QSpinC[foo]==qS] #generators lying in spinc strutures with the same Chern numbers as qS
-            for gen in [foo for foo in same_QSpinC if foo>0]:
-                if [foo for foo in same_QSpinC if foo<gen and self.find_domain(gen,foo)!=None]!=[]:
-                    base_gen=min([foo for foo in same_QSpinC if foo<gen and self.find_domain(gen,foo)!=None])
+            base_gens=[]
+            for gen in same_QSpinC:
+                if [foo for foo in base_gens if foo<gen and self.find_domain(gen,foo)!=None]!=[]:
+                    base_gen=min([foo for foo in base_gens if foo<gen and self.find_domain(gen,foo)!=None])
                     self.SpinC[gen]=self.SpinC[base_gen]
                     self.domains_stored[gen]=self.find_domain(gen,base_gen)
                 else:
-                    self.SpinC[gen]=(self.QSpinC[gen],max([self.SpinC[foo][1] for foo in same_QSpinC if foo<gen])+1)
+                    if gen==min(same_QSpinC):
+                        self.SpinC[gen]=(self.QSpinC[gen],0)
+                    else:
+                        self.SpinC[gen]=(self.QSpinC[gen],max([self.SpinC[foo][1] for foo in same_QSpinC if foo<gen])+1)
                     self.domains_stored[gen]=(0,zero_vector(len(self.regions_un)))
+                    base_gens.append(gen)
         self.SpinC_structures=[] #list of spinc structures with non-empty sets of generators
         for gen in self.generators: 
             if self.SpinC[gen] not in self.SpinC_structures:
