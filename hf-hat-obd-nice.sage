@@ -474,8 +474,8 @@ class NiceHeegaardDiagram():
                 p1=self.generator_reps[initial][j]
                 sigma_i=self.intersection_incidence[p0][1]
                 sigma_j=self.intersection_incidence[p1][1]
-                for q0 in [q for q in self.intersections_on_alphas[i] if q!=p0 and self.intersection_incidence[q][1]==sigma_i]:
-                    for q1 in [q for q in self.intersections_on_alphas[j] if q!=p1 and self.intersection_incidence[q][1]==sigma_j]:
+                for q0 in [q for q in self.intersections_on_alphas[i] if q!=p0 and self.intersection_incidence[q][1]==sigma_j]:
+                    for q1 in [q for q in self.intersections_on_alphas[j] if q!=p1 and self.intersection_incidence[q][1]==sigma_i]:
                         gen=list(self.generator_reps[initial])
                         gen[i]=q0
                         gen[j]=q1
@@ -601,10 +601,12 @@ class NiceHeegaardDiagram():
         else:
             self.SpinC=dict()
             self.domains_stored=dict()
+            self.cx=[]
             self.cx0=[]
             self.cx1=[]
             for gen in self.generators:
                 if self.find_domain(gen,0)!=None:
+                    (self.cx).append(gen)
                     (m,D)=self.find_domain(gen,0)
                     self.domains_stored[gen]=(m,D)
                     self.SpinC[gen]=(self.chern_num,0)
