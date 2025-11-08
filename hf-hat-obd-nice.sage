@@ -21,7 +21,6 @@
 
 from datetime import datetime
 import itertools
-sage.parallel.decorate.parallel(p_iter='fork', ncpus=None)
 
 class NiceHeegaardDiagram():
 
@@ -215,24 +214,11 @@ class NiceHeegaardDiagram():
         #Variables needed to solve for domains.
         k=(self.boundary_mat_un.transpose()).nrows() #the same as the number of intersection points
         l=(self.boundary_mat_un.transpose()).ncols() #the same as the number of unpointed regions
-        P, L, U = (self.boundary_mat_un.transpose()).LU() #B=PLU with B=self.boundary_mat_un.transpose() NEED TO BE MADE FASTER
-        A=P*L #kxk invertible matrix
-        self.Ainv=A.inverse()
-        self.zrlist=[i for i in range(k) if U.row(i) == zero_vector(ZZ,l)] #list of zero rows of U
-        self.plist=U.pivots() #pivot columns of U
-        self.prlist=U.pivot_rows() #pivot rows of U
-        self.nonplist=[i for i in range(l) if i not in self.plist] #non-pivot columns of U
-        self.nonprlist=[i for i in range(k) if i not in self.prlist] #non-pivot rows of U
-        self.U_red=U.matrix_from_rows_and_columns(self.prlist,self.plist) #extract pivot rows and columns of U
-        self.Ainv_test=(self.Ainv).matrix_from_rows(self.zrlist) #extract the rows of Ainv corresponding to the zero rows of U
-        self.Ainv_red=(self.Ainv).delete_rows(self.nonprlist) #remove the rows of Ainv corresponding to the nonpivot rows of U
-        self.U_red_inv=(self.U_red).inverse() #U_red is an invertible (k-z)x(k-z) matrix where z is the length of nonprlist
-        self.solve_mat=self.U_red_inv*self.Ainv_red #(k-z)xk matrix
-        self.red_em_2_un=matrix(self.euler_measures_2[:len(self.regions_un)])
-        self.red_em_2_un=self.red_em_2_un.delete_columns(self.nonplist)
-        self.red_em_2_un_vect=vector(self.red_em_2_un)
-        self.red_pm_4_un=matrix(self.point_measures_4[:len(self.regions_un)])
-        self.red_pm_4_un=self.red_pm_4_un.delete_rows(self.nonplist)        
+        S, L, R = (self.boundary_mat_un.transpose()).smith_form() #S=L*B*R with B=self.boundary_mat_un.transpose()
+        self.SNF=S
+        self.LUM=L
+        self.RUM=R
+        self.zrlist=[i for i in range(k) if S.row(i) == zero_vector(ZZ,l)] #list of zero rows of S    
         print(datetime.now())
         print('Initialization is complete.')
         
@@ -246,19 +232,29 @@ class NiceHeegaardDiagram():
         for p in list(self.generator_reps[initial]):
             target_vect[p]-=1
             target_vect_abs[p]+=1
-        if self.Ainv_test*target_vect==zero_vector(len(self.zrlist)):#checks if there is an answer over the rationals
-            solution=self.solve_mat*target_vect
-            if [i for i in range(len(solution)) if not (solution[i]).is_integer()]==[]:
-                maslov_4=2*solution.dot_product(self.red_em_2_un_vect)+solution*self.red_pm_4_un*target_vect_abs
-                if maslov_4%4!=0:
-                    return None
+        new_target_vect=self.LUM*target_vect
+        test_vect=vector(ZZ,[new_target_vect[i] for i in self.zrlist])
+        if test_vect==zero_vector(len(self.zrlist)):
+            test_int=True
+            solution=zero_vector(QQ,len(self.regions_un))
+            for i in range(len(self.regions_un)):
+                if i not in self.zrlist:
+                    solution[i]=new_target_vect[i]/self.SNF[i,i]
+                    if not (solution[i]).is_integer():
+                        test_int=False
+                        break
+                    else:
+                        continue
                 else:
-                    maslov=maslov_4/4
-                    solution_list=list(solution)
-                    for i in range(len(self.nonplist)):
-                        solution_list.insert(self.nonplist[i],0)
-                    domain=vector(ZZ,len(self.regions_un),solution_list)
+                    continue
+            if test_int==True:
+                domain=self.RUM*solution
+                maslov_4=int(2*domain.dot_product(self.euler_measures_2_un)+domain*self.point_measures_4_un*target_vect_abs)
+                maslov=int(maslov_4/4)
+                if maslov_4%4==0:    
                     return (maslov,domain)
+                else:
+                    return None
             else:
                 return None
         else:
@@ -595,13 +591,12 @@ class NiceHeegaardDiagram():
         if self.complex_initialized:
             self.canonical_spinc_initialized=True
         else:
+            self.SpinC_structures=[(self.chern_num,0)]
             self.SpinC=dict()
             self.domains_stored=dict()
             self.cx=[]
             self.cx0=[]
             self.cx1=[]
-            self.SpinC_structures=[(self.chern_num,0)]
-            self.genSpinC=[[]]
             for gen in self.generators:
                 if self.find_domain(gen,0)!=None:
                     (self.cx).append(gen)
@@ -614,9 +609,9 @@ class NiceHeegaardDiagram():
                         (self.cx1).append(gen)
                     else:
                         continue
-                    self.genSpinC[0].append(gen)
                 else:
                     self.SpinC[gen]=None
+            self.genSpinC=[[gen for gen in self.generators if self.SpinC[gen]==S] for S in self.SpinC_structures]
             self.canonical_spinc_initialized=True
         print('Search is complete.')
         print(datetime.now())
